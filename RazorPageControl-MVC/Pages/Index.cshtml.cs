@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 using RazorPageControl_MVC.Context;
 using RazorPageControl_MVC.Entities;
-namespace ViewComponentLesson.Pages;
+namespace RazorPageControl_MVC.Pages;
 
 public class IndexModel(AppDbContext appDbContext) : PageModel
 {
@@ -22,11 +23,45 @@ public class IndexModel(AppDbContext appDbContext) : PageModel
     [BindProperty]
     public Product Product { get; set; }
 
-    public IActionResult OnPost()
+    public async Task<IActionResult> OnPostAsync()
     {
-        _appDbContext.Products.Add(Product);
-        _appDbContext.SaveChanges();
-        Message = $"{Product.Name} added succesfully";
+        var checkProduct = await _appDbContext.Products.FirstOrDefaultAsync(p => p.Id == Product.Id);
+
+        if(checkProduct is null)
+        {
+            await _appDbContext.Products.AddAsync(Product);
+            await _appDbContext.SaveChangesAsync();
+            Message = $"{Product.Name} added successfully";
+            return RedirectToPage("Index");
+        }
+        else
+        {
+            _appDbContext.Products.Update(checkProduct);
+            await _appDbContext.SaveChangesAsync();
+            Message = $"{Product.Name} Update";
+            return RedirectToPage("Index");
+        }
+    }
+
+    public async Task<IActionResult> OnPostUpdateAsync(int id)
+    {
+        var oldProduct = await _appDbContext.Products.FirstOrDefaultAsync(p => p.Id == id);
+        if (oldProduct is null) { Message = "Product Not Found"; return NotFound(); }
+        Product = oldProduct;
+        Products = [.. _appDbContext.Products];
+        return Page();
+    }
+
+    public async Task<IActionResult> OnPostDeleteAsync(int id)
+    {
+        var product = await _appDbContext.Products.FirstOrDefaultAsync(p => p.Id == id);
+        if (product is null) { Message = "Product Not Found"; return NotFound(); }
+
+        _appDbContext.Products.Remove(product);
+        await _appDbContext.SaveChangesAsync();
+        Message = $"{Product.Name} deleted";
         return RedirectToPage("Index");
     }
+
+
 }
