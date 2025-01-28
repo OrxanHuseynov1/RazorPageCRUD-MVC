@@ -1,6 +1,5 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.EntityFrameworkCore;
 using RazorPageControl_MVC.Context;
 using RazorPageControl_MVC.Entities;
 namespace RazorPageControl_MVC.Pages;
@@ -13,6 +12,8 @@ public class IndexModel(AppDbContext appDbContext) : PageModel
     public string? Info { get; set; }
     public List<Product>? Products { get; set; }
 
+    [BindProperty]
+    public Product Product { get; set; }
 
     public void OnGet()
     {
@@ -20,48 +21,48 @@ public class IndexModel(AppDbContext appDbContext) : PageModel
         Message = $"Now date is {DateTime.Now.DayOfWeek}";
     }
 
-    [BindProperty]
-    public Product Product { get; set; }
-
-    public async Task<IActionResult> OnPostAsync()
+    public async Task<IActionResult> OnPostSaveAsync()
     {
-        var checkProduct = await _appDbContext.Products.FirstOrDefaultAsync(p => p.Id == Product.Id);
-
-        if(checkProduct is null)
+        if (Product.Id == 0) 
         {
             await _appDbContext.Products.AddAsync(Product);
-            await _appDbContext.SaveChangesAsync();
             Message = $"{Product.Name} added successfully";
-            return RedirectToPage("Index");
         }
-        else
+        else 
         {
-            _appDbContext.Products.Update(checkProduct);
-            await _appDbContext.SaveChangesAsync();
-            Message = $"{Product.Name} Update";
-            return RedirectToPage("Index");
+            var existingProduct = await _appDbContext.Products.FindAsync(Product.Id);
+            if (existingProduct is not null)
+            {
+                existingProduct.Name = Product.Name;
+                existingProduct.Price = Product.Price;
+                Message = $"{Product.Name} updated successfully";
+            }
+            else
+            {
+                Message = "Product not found for update.";
+                return NotFound();
+            }
         }
+
+        await _appDbContext.SaveChangesAsync();
+        return RedirectToPage("Index");
     }
 
     public async Task<IActionResult> OnPostUpdateAsync(int id)
     {
-        var oldProduct = await _appDbContext.Products.FirstOrDefaultAsync(p => p.Id == id);
-        if (oldProduct is null) { Message = "Product Not Found"; return NotFound(); }
-        Product = oldProduct;
+        var product = await _appDbContext.Products.FindAsync(id);
+
+        Product = product!;
         Products = [.. _appDbContext.Products];
-        return Page();
+        return Page(); 
     }
 
     public async Task<IActionResult> OnPostDeleteAsync(int id)
     {
-        var product = await _appDbContext.Products.FirstOrDefaultAsync(p => p.Id == id);
-        if (product is null) { Message = "Product Not Found"; return NotFound(); }
-
-        _appDbContext.Products.Remove(product);
+        var product = await _appDbContext.Products.FindAsync(id);
+        _appDbContext.Products.Remove(product!);
         await _appDbContext.SaveChangesAsync();
-        Message = $"{Product.Name} deleted";
+        Message = $"{product!.Name} deleted";
         return RedirectToPage("Index");
     }
-
-
 }
